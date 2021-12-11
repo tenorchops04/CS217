@@ -25,7 +25,7 @@ import time
 
 use_cuda = True
 # use_gpus = 0
-print("CUDA Available: ", torch.cuda.is_available())
+# print("CUDA Available: ", torch.cuda.is_available())
 
 def MSE(x1, x2): return ((x1-x2)**2).mean()
 l1_dist = lambda a, b :  np.linalg.norm((a - b).ravel(), ord = 1)
@@ -41,15 +41,6 @@ loss_l2 = torch.nn.MSELoss()
 sigmoid = torch.nn.Sigmoid()   
 loss_l0 = lambda x: torch.norm(x, p=0)
 
-alexnet = nn.DataParallel(models.alexnet(pretrained=True).cuda().eval())
-densenet = nn.DataParallel(models.densenet161(pretrained=True).cuda().eval())
-inception = nn.DataParallel(models.inception_v3(pretrained=True).cuda().eval())
-googlenet = nn.DataParallel(models.googlenet(pretrained=True).cuda().eval())
-mnasnet0_5 = nn.DataParallel(models.mnasnet0_5(pretrained=True).cuda().eval())
-
-model_name_all = ["alexnet", "densenet", "googlenet", "inception", "mnasnet0_5"]
-model_list_all = [alexnet, densenet, googlenet, inception, mnasnet0_5]
-models_dict_all = {model_name_all[i]: model_list_all[i] for i in range(len(model_name_all))}
 
 # annotations_file = "./dataset/neurips17_dataset/images_0.csv"
 annotations_file = "./dataset/neurips17_dataset/test_images.csv"
@@ -67,7 +58,7 @@ normed_data_transforms = transforms.Compose([
         ])
 
 def attack(models, device, test_loader, alpha, eps, save_dir="test/"):
-    print("curr_eps", eps)
+    # print("curr_eps", eps)
     # Accuracy counter
     cnt = 0
     missed = 0
@@ -92,8 +83,8 @@ def attack(models, device, test_loader, alpha, eps, save_dir="test/"):
             data = (orig_data + pert).clamp(0, 1)
             loss_total = 0
             for model in models:
-                if(use_gpus):
-                    model = nn.DataParallel(model)
+                # if(use_gpus):
+                #     model = nn.DataParallel(model)
                 output = model(normalize(data))
                 loss_total += loss_ce(output, target)
             torch.autograd.backward(loss_total, inputs=pert,retain_graph=False, create_graph=False)
@@ -115,13 +106,13 @@ def attack(models, device, test_loader, alpha, eps, save_dir="test/"):
         if final_pred.item() != gt_label.item():
             missed += 1
 
-        print("final", final_pred.item(), "target", target.item(), "gt", gt_label.item())
+        # print("final", final_pred.item(), "target", target.item(), "gt", gt_label.item())
     final_missed = missed / float(len(test_loader))
     final_target_success = target_success / float(len(test_loader))
-    print("Epsilon: {}\tfinal_missed = {} / {} = {}".format(alpha, final_missed, len(test_loader), final_missed))
-    print("Epsilon: {}\tfinal_target_success = {} / {} = {}".format(alpha, target_success, len(test_loader),
-                                                                    final_target_success))
-    print("Epsilon: {}\tmodel accuracy = {} / {} = {}".format(alpha, len(test_loader) - cnt, len(test_loader), cnt))
+    # print("Epsilon: {}\tfinal_missed = {} / {} = {}".format(alpha, final_missed, len(test_loader), final_missed))
+    # print("Epsilon: {}\tfinal_target_success = {} / {} = {}".format(alpha, target_success, len(test_loader),
+    #                                                                 final_target_success))
+    # print("Epsilon: {}\tmodel accuracy = {} / {} = {}".format(alpha, len(test_loader) - cnt, len(test_loader), cnt))
 
 # Collect a random sample of n+1 distinct models
 def getRandomModels(sz, eps, t):
@@ -225,7 +216,7 @@ def write_wb_results(sz, num_tasks, eps, save_dir_root, k, device):
         f = open(results_dir_targeted, "a")
         results_dir_untargeted = f"./batch_results/eps_{eps}_pm_{sz}/task{i}_wb_results_untargeted.txt"
         g = open(results_dir_untargeted, "a")
-        print("Task {}:".format(i))
+        # print("Task {}:".format(i))
 
         # The file already has all the pm_models written to it, so write the ho models
         for model in ho_models_dict[i].keys():
@@ -234,24 +225,24 @@ def write_wb_results(sz, num_tasks, eps, save_dir_root, k, device):
         f.write("\n")
         g.write("\n")
 
-        print("\tpm_models:")
+        # print("\tpm_models:")
         # Write the results of the models in the pm
         for model in pm_models_dict[i].keys():
             # print("\tpm model:", model)
 
             pm_model = pm_models_dict[i][model] 
             
-            print("\t\tAttacking ", model)
+            # print("\t\tAttacking ", model)
             adv_accuracy, adv_to_target = eval_adv_images(pm_model, i, save_dir_root, k-1, device)
             
             f.write(str(adv_to_target) + " ")
             g.write(str(adv_accuracy) + " ")
 
-        print("\tholdout model:")
+        # print("\tholdout model:")
         for model in ho_models_dict[i].keys():
             ho_model = ho_models_dict[i][model]
 
-            print("\t\tAttacking ", model)
+            # print("\t\tAttacking ", model)
             adv_accuracy, adv_to_target = eval_adv_images(ho_model, i, save_dir_root, k-1, device)
 
             f.write(str(adv_to_target) + " ")
@@ -269,7 +260,7 @@ def main():
     parser.add_argument("--eps", nargs="?", default=0.05, help="perturbation level (linf): 0.01, 0.03, 0.05, 0.08, 0.1, 0.2")
     parser.add_argument("--sz", nargs="?", default=2, help="the number of random models drawn from the ensemble")
     parser.add_argument("--t", nargs="?", default=1, help="the number of tasks for the attack")
-    parser.add_argument("--K", nargs="?", default=5, help="the number of iterations for the attack")
+    parser.add_argument("--K", nargs="?", default=1, help="the number of iterations for the attack")
     parser.add_argument("--root", nargs="?", default="batch_result", help="root of all the samples to be evaluated")
     parser.add_argument("--mg" , dest = "gpus", action='store_true', help="Enables use of multiple GPUS")
     parser.add_argument("--sg" , dest = "gpus", action='store_false', help="Enables use of multiple GPUS")
@@ -284,17 +275,43 @@ def main():
     global  use_gpus
     use_gpus= args.gpus
 
-    print(use_gpus)
+    # print(use_gpus)
     device = ""
+
+    global alexnet
+    global densenet
+    global inception
+    global googlenet
+    global mnasnet0_5
 
     if(use_gpus == True):
         # This line will use multiple GPUS
-        print(f"Using {torch.cuda.device_count()} GPUs")
+        # print(f"Using {torch.cuda.device_count()} GPUs")
         device = torch.device("cuda:0" if (use_cuda and torch.cuda.is_available()) else "cpu")
+
+        alexnet = nn.DataParallel(models.alexnet(pretrained=True).cuda().eval())
+        densenet = nn.DataParallel(models.densenet161(pretrained=True).cuda().eval())
+        inception = nn.DataParallel(models.inception_v3(pretrained=True).cuda().eval())
+        googlenet = nn.DataParallel(models.googlenet(pretrained=True).cuda().eval())
+        mnasnet0_5 = nn.DataParallel(models.mnasnet0_5(pretrained=True).cuda().eval())
+
     elif(use_gpus == False):
         # This line will use a single GPU
-        print(f"Using a single GPU")
+        # print(f"Using a single GPU")
         device = torch.device("cuda" if (use_cuda and torch.cuda.is_available()) else "cpu")
+        alexnet = models.alexnet(pretrained=True).cuda().eval()
+        densenet = models.densenet161(pretrained=True).cuda().eval()
+        inception = models.inception_v3(pretrained=True).cuda().eval()
+        googlenet = models.googlenet(pretrained=True).cuda().eval()
+        mnasnet0_5 = models.mnasnet0_5(pretrained=True).cuda().eval()
+
+    global model_name_all
+    global model_list_all
+    global models_dict_all
+
+    model_name_all = ["alexnet", "densenet", "googlenet", "inception", "mnasnet0_5"]
+    model_list_all = [alexnet, densenet, googlenet, inception, mnasnet0_5]
+    models_dict_all = {model_name_all[i]: model_list_all[i] for i in range(len(model_name_all))}
 
     save_dir_root = save_dir_root + f"_{eps}_pm_{sz}/"
     # print(save_dir_root)
@@ -311,6 +328,7 @@ def main():
         # This line will use a single GPU
         print(f"Using a single GPU")
     print("Running time: ", end-start)
+
 
 if __name__ == "__main__":
     main()
